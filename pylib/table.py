@@ -1,5 +1,6 @@
 """A table of reconciled or unreconciled data."""
 import json
+import re
 from dataclasses import dataclass
 from dataclasses import field
 from itertools import groupby
@@ -9,7 +10,7 @@ import pandas as pd
 from pylib.fields.base_field import BaseField
 from pylib.fields.noop_field import NoOpField
 from pylib.fields.same_field import SameField
-from pylib.result import GOOD
+from pylib.result import GOOD, Result
 from pylib.row import Row
 
 
@@ -31,10 +32,109 @@ class Table:
     def has_rows(self):
         return bool(self.rows)
 
-    def to_csv(self, path):
-        rows = self.to_records()
-        df = pd.DataFrame(rows).fillna("")
+    @staticmethod
+    def get_note(obj):
+        try:
+            notes = json.loads(obj)["note"]
+        except TypeError:
+            notes = ""
+        return notes
+
+    @staticmethod
+    def get_result(obj):
+        try:
+            return json.loads(obj)["result"]
+        except TypeError:
+            return Result.ALL_BLANK.value
+
+    def to_df(self, args):
+        df = pd.DataFrame(self.to_records())
+        df = df.set_index(args.group_by, drop=False)
+        df = self.sort_columns(args, df)
+        df = df.fillna("")
+        return df
+
+    def explanation_df(self, args, unreconciled=None):
+        df = pd.DataFrame(self.to_explanations(args.group_by))
+        df = df.set_index(args.group_by, drop=False)
+        columns = [c for c in df.columns if c != args.group_by]
+        df[columns] = df[columns].applymap(self.get_note)
+        self.fix_empty_explanations(args, df, unreconciled)
+        df = self.sort_columns(args, df)
+        return df
+
+    def problem_df(self, args):
+        df = pd.DataFrame(self.to_explanations(args.group_by))
+        df = df.set_index(args.group_by, drop=False)
+        columns = [c for c in df.columns if c != args.group_by]
+        df[columns] = df[columns].applymap(self.get_result)
+        df = self.sort_columns(args, df)
+        return df
+
+    def to_csv(self, args, path, unreconciled=None):
+        df = self.to_df(args)
+
+        if args.explanations and self.is_reconciled:
+            df2 = self.explanation_df(args, unreconciled)
+            df = df.join(df2, rsuffix=" Explanation")
+            df = self.sort_columns(args, df)
+            df = df.fillna("")
+
         df.to_csv(path, index=False)
+
+    def fix_empty_explanations(self, args, df, unreconciled):
+        """A hack to workaround Zooniverse missing data."""
+        df3 = pd.DataFrame(
+            [
+                {args.group_by: r[args.group_by], 'n': 1}
+                for r in unreconciled.to_records()
+            ]
+        )
+        counts = df3.groupby(args.group_by).count()
+        e = list(self.get_column_types().keys())
+        for n in counts.n.unique():
+            idx = counts.loc[counts.n == n].index
+            replace = f"All {n} records are blank"
+            df.update(df.loc[idx, e].replace(r"^\s*$", replace, regex=True))
+
+    @staticmethod
+    def sort_columns(args, df):
+        """A hack to workaround Zooniverse random-ish column ordering."""
+        order = [(0, 0, args.group_by)]
+        skips = [args.group_by]
+        if hasattr(args, "row_key") and args.row_key and args.row_key in df.columns:
+            order.append((0, 1, args.row_key))
+            skips.append(args.row_key)
+        if (hasattr(args, "user_column") and args.user_column
+                and args.user_column in df.columns):
+            order.append((0, 2, args.user_column))
+            skips.append(args.user_column)
+
+        for i, col in enumerate(df.columns):
+            if col in skips:
+                continue
+            if match := re.match(r"[Tt](\d+)", col):
+                task_no = int(match.group(1))
+                order.append((1, task_no, col))
+            else:
+                order.append((2, i, col))
+        order = [o[2] for o in sorted(order)]
+        df = df[order]
+        return df
+
+    @staticmethod
+    def natural_column_sort(df, order=None):
+        """A hack to workaround Zooniverse random-ish column ordering."""
+        order = order if order else []
+        for i, col in enumerate(df.columns):
+            if match := re.match(r"[Tt](\d+)", col):
+                task_no = int(match.group(1))
+                order.append((1, task_no, col))
+            else:
+                order.append((2, i, col))
+        order = [o[2] for o in sorted(order)]
+        df = df[order]
+        return df
 
     def to_records(self):
         exclude = NoOpField if self.is_reconciled else type(None)
@@ -116,6 +216,7 @@ class Table:
                 if not field_group:
                     continue
                 field_type = type(field_group[0])
+                field_group = field_type.pad_group(field_group, len(row_group))
                 cell = field_type.reconcile(field_group, args)
                 cell.is_reconciled = True
                 row.add_field(key, cell)

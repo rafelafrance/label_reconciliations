@@ -11,7 +11,7 @@ from pylib import utils
 from pylib.table import Table
 
 
-VERSION = "0.5.5"
+VERSION = "0.5.7"
 
 
 def parse_args():
@@ -69,9 +69,23 @@ def parse_args():
     )
 
     parser.add_argument(
+        "-e",
+        "--explanations",
+        action="store_true",
+        help="""Output the reconciled explanations with the reconciled classifications
+            CSV file.""",
+    )
+
+    parser.add_argument(
         "-z",
         "--zip",
         help="""Zip the output files and put them into this archive.""",
+    )
+
+    parser.add_argument(
+        "-n",
+        "--workflow-name",
+        help="""The name of the workflow. NfN extracts can find a default.""",
     )
 
     parser.add_argument(
@@ -196,13 +210,13 @@ def main():
         utils.error_exit(f"Workflow {args.workflow_id} has no data.")
 
     if args.unreconciled:
-        unreconciled.to_csv(args.unreconciled)
+        unreconciled.to_csv(args, args.unreconciled)
 
     if args.reconciled or args.summary:
         reconciled = Table.reconcile(unreconciled, args)
 
         if args.reconciled:
-            reconciled.to_csv(args.reconciled)
+            reconciled.to_csv(args, args.reconciled, unreconciled)
 
         if args.summary:
             summary.report(args, unreconciled, reconciled)
