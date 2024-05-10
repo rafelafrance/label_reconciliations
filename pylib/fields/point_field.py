@@ -1,14 +1,9 @@
-"""Reconcile points.
-
-Note: I am assuming that point notations are required. If this is no longer the case you
-      will need to edit this file.
-"""
 import statistics as stats
 from dataclasses import dataclass
+from typing import Any
 
 from pylib.fields.base_field import BaseField
-from pylib.result import Result
-from pylib.result import sort_results
+from pylib.flag import Flag
 from pylib.utils import P
 
 
@@ -16,28 +11,22 @@ from pylib.utils import P
 class PointField(BaseField):
     x: float = 0.0
     y: float = 0.0
-    use: bool = True
 
-    def to_dict(self):
-        return self.round("x", "y")
+    def to_dict(self, reconciled=False) -> dict[str, Any]:
+        field_dict = {
+            self.header("x"): int(round(self.x)),
+            self.header("y"): int(round(self.y)),
+        }
+        return field_dict
 
     @classmethod
-    def reconcile(cls, group, _=None):
-        count = len(group)
-
-        note = f'There {P("is", count)} {count} point {P("record", count)}'
+    def reconcile(cls, group, row_count, args=None):
+        note = (
+            f'There {P("is", len(group))} {len(group)} of {row_count}'
+            f'point {P("record", row_count)}'
+        )
 
         x = round(stats.mean([ln.x for ln in group]))
         y = round(stats.mean([ln.y for ln in group]))
 
-        return cls(note=note, x=x, y=y, result=Result.OK)
-
-    @classmethod
-    def pad_group(cls, group, length):
-        while len(group) < length:
-            group.append(cls(use=False))
-        return group
-
-    @staticmethod
-    def results():
-        return sort_results(Result.ALL_BLANK, Result.OK)
+        return cls.like(group, note=note, x=x, y=y, flag=Flag.OK)

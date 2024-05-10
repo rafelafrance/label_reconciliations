@@ -1,9 +1,10 @@
-fuzzywuzzy
-inflect
 Jinja2
 MarkupSafe
+fuzzywuzzy
+inflect
+jsonpath-ng
 numpy
 pandas
 plotly
-python-dateutil
 python-Levenshtein
+python-dateutil

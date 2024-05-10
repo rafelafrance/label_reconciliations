@@ -1,16 +1,16 @@
 import json
 import warnings
 
-from .. import utils
-from ..fields.box_field import BoxField
-from ..fields.length_field import LengthField
-from ..fields.noop_field import NoOpField
-from ..fields.point_field import PointField
-from ..fields.same_field import SameField
-from ..fields.select_field import SelectField
-from ..fields.text_field import TextField
-from ..row import Row
-from ..table import Table
+from pylib import utils
+from pylib.fields.box_field import BoxField
+from pylib.fields.length_field import LengthField
+from pylib.fields.noop_field import NoOpField
+from pylib.fields.point_field import PointField
+from pylib.fields.same_field import SameField
+from pylib.fields.select_field import SelectField
+from pylib.fields.text_field import TextField
+from pylib.row import Row
+from pylib.table import Table
 
 
 def validate_columns(args, df):
@@ -60,16 +60,18 @@ def read_table(args, df):
     for raw_row in records:
         row = Row()
 
-        row.add_field(
-            args.group_by,
-            SameField(value=raw_row[args.group_by]),
+        row.add(
+            SameField(
+                name=args.group_by,
+                value=raw_row[args.group_by],
+            )
         )
 
-        for column_name, value in raw_row.items():
-            if column_name == args.group_by:
+        for name, value in raw_row.items():
+            if name == args.group_by:
                 continue
 
-            field_type = column_types.get(column_name, "noop")
+            field_type = column_types.get(name, "noop")
 
             match field_type:
                 case "box":
@@ -77,42 +79,51 @@ def read_table(args, df):
                         value = json.loads(value)
                     else:
                         value = {"x": 0, "y": 0, "width": 0, "height": 0}
-                    row.add_field(column_name, BoxField(
-                        left=round(value["x"]),
-                        right=round(value["x"] + value["width"]),
-                        top=round(value["y"]),
-                        bottom=round(value["y"] + value["height"]),
-                    ))
+                    row.add(
+                        BoxField(
+                            name=name,
+                            left=round(value["x"]),
+                            right=round(value["x"] + value["width"]),
+                            top=round(value["y"]),
+                            bottom=round(value["y"] + value["height"]),
+                        )
+                    )
                 case "length":
                     if value:
                         value = json.loads(value)
                     else:
                         value = {"x1": 0, "y1": 0, "x2": 0, "y2": 0}
-                    row.add_field(column_name, LengthField(
-                        x1=round(value["x1"]),
-                        y1=round(value["y1"]),
-                        x2=round(value["x2"]),
-                        y2=round(value["y2"]),
-                    ))
+                    row.add(
+                        LengthField(
+                            name=name,
+                            x1=round(value["x1"]),
+                            y1=round(value["y1"]),
+                            x2=round(value["x2"]),
+                            y2=round(value["y2"]),
+                        )
+                    )
                 case "noop":
                     value = value if value else ""
-                    row.add_field(column_name, NoOpField(value=value))
+                    row.add(NoOpField(name=name, value=value))
                 case "point":
                     value = json.loads(value) if value else {"x": 0, "y": 0}
-                    row.add_field(column_name, PointField(
-                        x=round(value["x"]),
-                        y=round(value["y"]),
-                    ))
+                    row.add(
+                        PointField(
+                            name=name,
+                            x=round(value["x"]),
+                            y=round(value["y"]),
+                        )
+                    )
                 case "same":
                     value = value if value else ""
-                    row.add_field(column_name, SameField(value=value))
+                    row.add(SameField(name=name, value=value))
                 case "select":
                     value = value if value else ""
-                    row.add_field(column_name, SelectField(value=value))
+                    row.add(SelectField(name=name, value=value))
                 case "text":
                     value = value if value else ""
-                    row.add_field(column_name, TextField(value=value))
+                    row.add(TextField(name=name, value=value))
 
-        table.append(row)
+        table.add(row)
 
     return table

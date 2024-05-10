@@ -1,14 +1,9 @@
-"""Reconcile a box annotation.
-
-Note: I am assuming that box notations are required. If this is no longer the case you
-      will need to edit this file.
-"""
 from dataclasses import dataclass
 from statistics import mean
+from typing import Any
 
 from pylib.fields.base_field import BaseField
-from pylib.result import Result
-from pylib.result import sort_results
+from pylib.flag import Flag
 from pylib.utils import P
 
 
@@ -18,40 +13,28 @@ class BoxField(BaseField):
     right: float = 0.0
     top: float = 0.0
     bottom: float = 0.0
-    use: bool = True
 
-    def to_dict(self):
-        return self.round("left", "right", "top", "bottom")
+    def to_dict(self, reconciled=False) -> dict[str, Any]:
+        field_dict = {
+            self.header("left"): int(round(self.left)),
+            self.header("right"): int(round(self.right)),
+            self.header("top"): int(round(self.top)),
+            self.header("bottom"): int(round(self.bottom)),
+        }
+        return field_dict
 
     @classmethod
-    def reconcile(cls, group, _=None):
-        count = len(group)
-        use = [g for g in group if g.use]
+    def reconcile(cls, group, row_count, args=None):
+        use = [g for g in group if g is not None]
 
-        note = f"There {P('is', count)} {count} box {P('record', count)}"
+        note = f"There {P('is', row_count)} {row_count} box {P('record', row_count)}"
 
-        return cls(
+        return cls.like(
+            group,
             note=note,
-            result=Result.OK,
+            flag=Flag.OK,
             left=round(mean(b.left for b in use)),
             right=round(mean(b.right for b in use)),
             top=round(mean(b.top for b in use)),
             bottom=round(mean(b.bottom for b in use)),
         )
-
-    @staticmethod
-    def results():
-        return sort_results(Result.ALL_BLANK, Result.NO_MATCH, Result.OK)
-
-    @classmethod
-    def pad_group(cls, group, length):
-        while len(group) < length:
-            group.append(cls(use=False))
-        return group
-
-
-def overlaps_2d(box1, box2):
-    """Check if the boxes overlap."""
-    horiz = box1.right >= box2.left and box2.right >= box1.left
-    vert = box1.bottom >= box2.top and box2.bottom >= box1.top
-    return horiz and vert

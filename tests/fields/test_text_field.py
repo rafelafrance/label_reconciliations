@@ -2,7 +2,7 @@ import unittest
 from argparse import Namespace
 
 from pylib.fields.text_field import TextField
-from pylib.result import Result
+from pylib.fields.base_field import Flag
 
 
 class TestTextField(unittest.TestCase):
@@ -10,8 +10,8 @@ class TestTextField(unittest.TestCase):
         """It handles an empty group."""
         group = [TextField(), TextField(), TextField()]
         self.assertEqual(
-            TextField.reconcile(group),
-            TextField(note="All 3 records are blank", result=Result.ALL_BLANK),
+            TextField.reconcile(group, row_count=len(group)),
+            TextField(note="The 3 records are blank", flag=Flag.ALL_BLANK),
         )
 
     def test_reconcile_02(self):
@@ -22,11 +22,11 @@ class TestTextField(unittest.TestCase):
             TextField(value="Is same"),
         ]
         self.assertEqual(
-            TextField.reconcile(group),
+            TextField.reconcile(group, row_count=len(group)),
             TextField(
                 note="Exact unanimous match, 3 of 3 records",
                 value="Is same",
-                result=Result.UNANIMOUS,
+                flag=Flag.UNANIMOUS,
             ),
         )
 
@@ -39,11 +39,11 @@ class TestTextField(unittest.TestCase):
             TextField(value="Is same"),
         ]
         self.assertEqual(
-            TextField.reconcile(group),
+            TextField.reconcile(group, row_count=len(group)),
             TextField(
                 note="Exact match is a tie, 2 of 4 records with 0 blanks",
                 value="Are same",
-                result=Result.MAJORITY,
+                flag=Flag.MAJORITY,
             ),
         )
 
@@ -56,11 +56,11 @@ class TestTextField(unittest.TestCase):
             TextField(value="Are same"),
         ]
         self.assertEqual(
-            TextField.reconcile(group),
+            TextField.reconcile(group, row_count=len(group)),
             TextField(
                 note="Exact match, 2 of 4 records with 1 blank",
                 value="Are same",
-                result=Result.MAJORITY,
+                flag=Flag.MAJORITY,
             ),
         )
 
@@ -72,11 +72,11 @@ class TestTextField(unittest.TestCase):
             TextField(value=""),
         ]
         self.assertEqual(
-            TextField.reconcile(group),
+            TextField.reconcile(group, row_count=len(group)),
             TextField(
-                note="All 3 normalized records are blank",
+                note="The 3 normalized records are blank",
                 value="",
-                result=Result.NO_MATCH,
+                flag=Flag.NO_MATCH,
             ),
         )
 
@@ -88,11 +88,11 @@ class TestTextField(unittest.TestCase):
             TextField(value="GOOD TEST"),
         ]
         self.assertEqual(
-            TextField.reconcile(group),
+            TextField.reconcile(group, row_count=len(group)),
             TextField(
                 note="Normalized unanimous match, 3 of 3 records",
                 value="??Good test!@[]",
-                result=Result.UNANIMOUS,
+                flag=Flag.UNANIMOUS,
             ),
         )
 
@@ -105,11 +105,11 @@ class TestTextField(unittest.TestCase):
             TextField(value="better not??"),
         ]
         self.assertEqual(
-            TextField.reconcile(group),
+            TextField.reconcile(group, row_count=len(group)),
             TextField(
                 note="Normalized match is a tie, 2 of 4 records with 0 blanks",
                 value="??Good test!@[]",
-                result=Result.MAJORITY,
+                flag=Flag.MAJORITY,
             ),
         )
 
@@ -121,11 +121,11 @@ class TestTextField(unittest.TestCase):
             TextField(value="better not??"),
         ]
         self.assertEqual(
-            TextField.reconcile(group),
+            TextField.reconcile(group, row_count=len(group)),
             TextField(
                 note="Normalized match, 2 of 3 records with 0 blanks",
                 value="??Good test!@[]",
-                result=Result.MAJORITY,
+                flag=Flag.MAJORITY,
             ),
         )
 
@@ -138,11 +138,11 @@ class TestTextField(unittest.TestCase):
             TextField(value="Good is test[] right here another"),
         ]
         self.assertEqual(
-            TextField.reconcile(group, args),
+            TextField.reconcile(group, row_count=len(group), args=args),
             TextField(
                 note="Partial ratio match on 3 records with 1 blank, score=92",
                 value="??Good test!@[] right here another",
-                result=Result.FUZZY,
+                flag=Flag.FUZZY,
             ),
         )
 
@@ -155,11 +155,11 @@ class TestTextField(unittest.TestCase):
             TextField(value="Right here another good is test[]"),
         ]
         self.assertEqual(
-            TextField.reconcile(group, args),
+            TextField.reconcile(group, row_count=len(group), args=args),
             TextField(
                 note="Token set ratio match on 3 records with 1 blank, score=100",
                 value="Right here another good is test[]",
-                result=Result.FUZZY,
+                flag=Flag.FUZZY,
             ),
         )
 
@@ -172,10 +172,10 @@ class TestTextField(unittest.TestCase):
             TextField(value="Nothing matches"),
         ]
         self.assertEqual(
-            TextField.reconcile(group, args),
+            TextField.reconcile(group, row_count=len(group), args=args),
             TextField(
                 note="No text match on 3 records with 1 blank",
                 value="",
-                result=Result.NO_MATCH,
+                flag=Flag.NO_MATCH,
             ),
         )

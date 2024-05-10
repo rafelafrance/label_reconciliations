@@ -20,6 +20,7 @@
         <div><label>Transcriber Count:</label><span>{{header.transcribers}}</span></div>
     </header>
 
+    {% if has_users %}
     <section id="users">
         <h2>Transcriber Summary</h2>
         <button title="Expand or collapse the top transcribers table"></button>
@@ -36,18 +37,20 @@
         </i>
         {{ chart | safe }}
     </section>
+    {% endif %}
 
     <section>
         <h2>Reconciliation Summary</h2>
         {{ results }}
     </section>
 
+    {% if print_detail %}
     <section id="reconciliation">
         <h2>Reconciliation Detail</h2>
         <label>Filter Rows:</label>
         <select class="filter">
             {% for key, val in filters.items() %}
-            <option {% if loop.first %} selected="selected" {% endif %}>{{key}}</option>
+            <option {% if loop.first %} selected="selected" {% endif %}>{{key | safe}}</option>
             {% endfor %}
         </select>
         {{ skeleton | safe }}
@@ -61,6 +64,7 @@
             <button class="last-page" title="Last page">&gt;&gt;</button>
         </div>
     </section>
+    {% endif %}
 
 </body>
 
